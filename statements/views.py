@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Statement
+from .parser import parse_statement
 
 # Create your views here.
 class StatementUploadView(APIView):
@@ -26,7 +27,7 @@ class StatementUploadView(APIView):
             file_name=file_name,
             file_type=file_type,
         )
-
+        count=parse_statement(statement)
         return Response(
             {
             "message": "Statement uploaded successfully",
@@ -34,5 +35,6 @@ class StatementUploadView(APIView):
             "file_name": statement.file_name,
             "file_type": statement.file_type,
             "uploaded_at": statement.uploaded_at,
+            "transactions_parsed": count,
             },status=status.HTTP_200_OK
         )
