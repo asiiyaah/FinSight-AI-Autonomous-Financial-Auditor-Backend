@@ -35,5 +35,13 @@ class MeView(APIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
         })
+    
 
+        return Response({
+            "message": "Statement uploaded successfully",
+            "statement_id": statement.id,
+            "file_name": statement.file_name,
+            "file_type": statement.file_type,
+            "uploaded_at": statement.uploaded_at,
+        }, status=status.HTTP_201_CREATED)
 
