@@ -28,6 +28,19 @@ class StatementUploadView(APIView):
             file_type=file_type,
         )
         count=parse_statement(statement)
+
+#DESTRUCTION OF UNPARSED DOCUMENTS
+        # =========================================================
+        if count == 0:
+            statement.delete()  
+            return Response(
+                {
+                    "error": "Failed to parse transactions",
+                    "message": "Upload aborted to prevent database pollution. Verify the file format or try again."
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+
         return Response(
             {
             "message": "Statement uploaded successfully",
