@@ -3,6 +3,7 @@ import pdfplumber as pl
 from .models import Transaction
 from google import genai
 from django.conf import settings
+import time
 
 from pydantic import BaseModel,Field
 
@@ -73,25 +74,45 @@ def parse_statement(statement):
         {raw_text}
         """
 
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.5-flash",
-                contents=prompt,
-                config=dict(
-                    response_mime_type="application/json",
-                    response_schema=StatementData, # This forces the schema mold
-                ),
+        # ADDED: AUTO-RETRY LOGIC FOR 503 / 429 ERRORS
+        max_retries = 3
+        retry_delay = 4  # Start by waiting 4 seconds
+        response = None
+
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-3.5-flash",
+                    contents=prompt,
+                    config=dict(
+                        response_mime_type="application/json",
+                        response_schema=StatementData,
+                    ),
                 )
-            
-            result_data=response.parsed
-            parsed_count=0
+                # If successful, break out of the retry loop completely!
+                break
+            except Exception as e:
+                # Catch temporary high-demand or rate limits
+                if ("503" in str(e) or "429" in str(e)) and attempt < max_retries - 1:
+                    print(f"Gemini busy ({e}). Retrying in {retry_delay}s... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff (4s -> 8s -> 16s)
+                else:
+                    print(f"Gemini processing failed! :{e}")
+                    return 0
+
+        if not response:
+            return 0
+
+        try:
+            result_data = response.parsed
+            parsed_count = 0
 
             for tx in result_data.transactions:
-
-                extracted_date=tx.date
-                extracted_vendor=tx.vendor.strip() if tx.vendor else "Unknown"
-                extracted_amount=tx.amount
-                extracted_category=tx.category.strip() if tx.category else "Uncategorized"
+                extracted_date = tx.date
+                extracted_vendor = tx.vendor.strip() if tx.vendor else "Unknown"
+                extracted_amount = abs(tx.amount)
+                extracted_category = tx.category.strip() if tx.category else "Uncategorized"
 
                 Transaction.objects.create(
                     statement=statement,
@@ -100,16 +121,16 @@ def parse_statement(statement):
                     amount=extracted_amount,
                     category=extracted_category,
                 )
-                parsed_count+=1
+                parsed_count += 1
 
-            if parsed_count>0:
-                statement.is_parsed=True
+            if parsed_count > 0:
+                statement.is_parsed = True
                 statement.save()
             
             return parsed_count
         
         except Exception as e:
-            print(f"Gemini processing failed! :{e}")
+            print(f"Database insertion failed! :{e}")
             return 0
 
 
