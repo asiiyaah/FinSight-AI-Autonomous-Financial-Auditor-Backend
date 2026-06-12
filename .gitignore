@@ -7,3 +7,5 @@ media/
 .env
 .env.local
 .env.*.local
+
+generate_data.py

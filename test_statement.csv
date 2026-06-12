@@ -1,9 +1,13 @@
-date,vendor,amount,category
-2024-01-01,Swiggy,450.00,Food
-2024-01-02,Netflix,649.00,Entertainment
-2024-01-03,Amazon,1200.00,Shopping
-2024-01-04,Uber,250.00,Transport
-2024-01-05,Swiggy,380.00,Food
-2024-01-06,Netflix,649.00,Entertainment
-2024-01-07,BigBasket,2300.00,Groceries
-2024-01-08,Swiggy,450.00,Food
+date,vendor,amount,category,transaction_type,raw_description
+2026-05-01,Company Salary,50000,Income,credit,SALARY CREDIT MAY
+2026-05-02,Swiggy,320,Food,debit,UPI TO SWIGGY
+2026-05-03,Uber,180,Transport,debit,UPI TO UBER
+2026-05-04,Netflix,499,Subscription,debit,AUTO DEBIT NETFLIX
+2026-05-05,Amazon,1499,Shopping,debit,UPI AMAZON PAY
+2026-05-06,Spotify,119,Subscription,debit,AUTO DEBIT SPOTIFY
+2026-05-07,Swiggy,450,Food,debit,UPI TO SWIGGY
+2026-05-08,Zomato,390,Food,debit,UPI TO ZOMATO
+2026-05-09,Netflix,499,Subscription,debit,AUTO DEBIT NETFLIX
+2026-05-10,Apple Store,25000,Electronics,debit,CARD PAYMENT APPLE
+2026-05-11,Uber,180,Transport,debit,UPI TO UBER
+2026-05-12,Electricity Bill,2200,Bills,debit,KSEB PAYMENT

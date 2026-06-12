@@ -15,6 +15,10 @@ class ExtractedTransaction(BaseModel):
     vendor: str = Field(description="The vendor, merchant, or description of who was paid.")
     amount: float = Field(description="The transaction amount as a numeric float value.")
     category: str = Field(description="A clean category name like Food, Utilities, or Entertainment.")
+    transaction_type: str = Field(description="Either credit or debit.")
+    raw_description: str = Field(description="Original transaction description exactly as seen in statement.")
+
+
 
 class StatementData(BaseModel):
     """Defines that Gemini must return a wrapper list called 'transactions'."""
@@ -28,6 +32,7 @@ def parse_statement(statement):
     """FOR CSV FILES """
     if file_type =='csv':
         df=pd.read_csv(file_path)
+        df["date"] = pd.to_datetime(df["date"]).dt.date
         
         df['vendor'] = df['vendor'].str.strip()
 
@@ -42,6 +47,8 @@ def parse_statement(statement):
                 vendor=row['vendor'],
                 amount=row['amount'],
                 category=row['category'],
+                transaction_type=row["transaction_type"],
+                raw_description=row["raw_description"],
             )
         statement.is_parsed = True   # changes it in memory only
         statement.save()              # writes it to the database
@@ -68,11 +75,32 @@ def parse_statement(statement):
         client=genai.Client(api_key=settings.GEMINI_API_KEY)
 
         prompt = f"""
-        You are a financial parsing assistant. Extract all historical transaction records from this bank statement text.
-        Convert messy column names into our standard fields. Infer categories if missing.
-        raw text statement:
-        {raw_text}
-        """
+                You are a financial statement parser.
+
+                Extract ALL transactions from the bank statement text.
+
+                Return JSON in this exact schema.
+
+                Each transaction must contain:
+                - date (YYYY-MM-DD)
+                - vendor (clean short merchant name)
+                - amount (numeric only)
+                - category (Food, Bills, Shopping, Subscription, Transport, Income, Other)
+                - transaction_type (ONLY 'credit' or 'debit')
+                - raw_description (original text from statement row)
+
+                Rules:
+            1. Money entering account = credit
+              Examples: salary, refund, deposit
+
+            2. Money leaving account = debit
+                Examples: purchase, transfer, UPI payment, card payment
+
+            3. Preserve original transaction text in raw_description.
+
+            Bank statement text:
+            {raw_text}
+            """
 
         # ADDED: AUTO-RETRY LOGIC FOR 503 / 429 ERRORS
         max_retries = 3
@@ -106,13 +134,28 @@ def parse_statement(statement):
 
         try:
             result_data = response.parsed
+            if not result_data or not result_data.transactions:
+                print("No transactions extracted from Gemini.")
+                return 0
             parsed_count = 0
 
             for tx in result_data.transactions:
-                extracted_date = tx.date
+                extracted_date = pd.to_datetime(tx.date).date()
                 extracted_vendor = tx.vendor.strip() if tx.vendor else "Unknown"
-                extracted_amount = abs(tx.amount)
+                extracted_amount = tx.amount
                 extracted_category = tx.category.strip() if tx.category else "Uncategorized"
+                extracted_type = (
+                                        tx.transaction_type.lower().strip()
+                                        if tx.transaction_type else "debit"
+                                 )
+
+                if extracted_type not in ["credit", "debit"]:
+                    extracted_type = "debit"
+
+                extracted_raw = (
+                                    tx.raw_description.strip()
+                                    if tx.raw_description else extracted_vendor
+                                )
 
                 Transaction.objects.create(
                     statement=statement,
@@ -120,6 +163,8 @@ def parse_statement(statement):
                     vendor=extracted_vendor,
                     amount=extracted_amount,
                     category=extracted_category,
+                    transaction_type=extracted_type,
+                    raw_description=extracted_raw,
                 )
                 parsed_count += 1
 
