@@ -9,6 +9,7 @@ class Statement(models.Model):
     file_type = models.CharField(max_length=10)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_parsed = models.BooleanField(default=False)
+    audit_result = models.JSONField(null=True, blank=True)
     audit_status = models.BooleanField(default=False)
     summary = models.TextField(null=True, blank=True)
 
